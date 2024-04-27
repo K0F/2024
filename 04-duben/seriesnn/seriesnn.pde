@@ -1,9 +1,11 @@
-int windowSize = 10; // Size of the input window
-float[] data = new float[48000]; // Your time series data
-int numHidden = 33; // Number of hidden neurons
-float learningRate = 0.01; // Learning rate
-int epochs = 1000000; // Number of training epochs
-int printout = 10000;
+int windowSize = 48; // Size of the input window
+float[] data = new float[128]; // Your time series data
+int numHidden = 1024; // Number of hidden neurons
+float learningRate = 0.000337; // Learning rate
+int epochs = 10000000; // Number of training epochs
+int printout = 1000;
+
+boolean trained = false;
 
 // Neural network parameters
 float[][] inputWeights;
@@ -13,19 +15,81 @@ float outputWeight;
 float outputBias;
 
 void setup() {
-  size(400, 400);
+  size(720, 384);
 println("initializing layers");
+generateRandomData();
+
   initializeWeights();
   println("training");
-  train();
+  thread("train");
 }
+
+void keyPressed(){
+generateRandomData();
+	
+}
+
+void generateRandomData(){
+noiseSeed(int(random(1,10000)));
+float scale = random(10,100);
+// generate random data
+for(int i = 0 ; i < data.length;i++){
+	  data[i] = (noise(i/scale)-0.5)*2.0;
+}
+}
+
+
+float original[] = new float[data.length];
+float predicted[] = new float[data.length];
+
+void draw(){
+
+	if(trained){
+		
+	
+	}
+
+if(frameCount%60==0){
+	generateRandomData();
+
+			original = new float[data.length];
+			for(int i = 0 ; i < data.length;i++){
+				original[i] = data[i];
+			}
+
+			
+		predicted = predictNFields(original,original.length);
+	for(int i = 0 ; i < predicted.length;i++){
+				original[i] = predicted[i];
+			}
+
+}
+
+	background(255);
+noFill();
+
+beginShape();
+	for(int i = 0 ; i < data.length;i++){
+            stroke(0);            
+            vertex(map(i,0,data.length,0,width),map(data[i],-1,1,height,0));
+	}
+	endShape();
+
+
+			beginShape();
+	for(int i = 0 ; i < predicted.length;i++){
+	            stroke(#ff0000);            
+	            vertex(map(i,0,predicted.length,0,width),map(predicted[i],-1,1,height,0));
+		}
+		endShape();
+	
+
+	
+}
+
 
 void initializeWeights() {
 
-// generate random data
-for(int i = 0 ; i < data.length;i++){
-	  data[i] = random(-100,100)/100.0;
-}
 
   // Initialize input weights
   
@@ -50,7 +114,12 @@ for(int i = 0 ; i < data.length;i++){
 }
 
 void train() {
+
+ 	float prevTotalError = 0;
+ 
   for (int epoch = 0; epoch < epochs; epoch++) {
+ // windowSize = int(random(5,24));
+
   	float totalError = 0;
     for (int i = windowSize; i < data.length - 1; i++) {
       // Prepare input window
@@ -102,12 +171,38 @@ void train() {
 
           if (epoch % printout == 0) { // Print every 10 epochs (adjust as needed)
             float averageError = totalError / (data.length - windowSize - 1);
-            println("Epoch " + epoch + ", Average Error: " + averageError);
-            stroke(0);
-            point(map(epoch,0,data.length,0,width),map(averageError,0,1,height,0));
+            println("Epoch: " + epoch + ", Average Error: " + averageError+ ", Accuracy: "+ (1.0-averageError)*100.0 + "%" + ", Slope: " + (((1.0-averageError)*100.0-prevTotalError))+"%");
+            prevTotalError = (1.0-averageError)*100.0;
+           
+           
           }
     
   }//end epoch
+
+  trained = true;
+}
+
+float[] expandArray(float[] arr) {
+  float[] newArr = new float[arr.length + 1];
+  // Copy elements from the original array to the new array
+  for (int i = 0; i < arr.length; i++) {
+    newArr[i] = arr[i];
+  }
+  return newArr;
+}
+
+float[] removeFirstElement(float[] arr) {
+  // Check if the array is empty or has only one element
+  if (arr.length <= 1) {
+    return new float[0]; // Return an empty array
+  }
+  
+  float[] newArr = new float[arr.length - 1];
+  // Copy elements from the original array to the new array, skipping the first element
+  for (int i = 1; i < arr.length; i++) {
+    newArr[i - 1] = arr[i];
+  }
+  return newArr;
 }
 
 float predict(float[] input) {
@@ -128,6 +223,43 @@ float predict(float[] input) {
   output = sigmoid(output + outputBias);
   
   return output;
+}
+
+float[] predictNFields(float[] input, int n) {
+  float[] predictions = new float[n];
+  for (int i = 0; i < n; i++) {
+    // Forward pass
+    float[] _hiddenLayer = new float[numHidden];
+    for (int j = 0; j < numHidden; j++) {
+      float sum = 0;
+      for (int k = 0; k < windowSize; k++) {
+        sum += input[k] * inputWeights[k][j];
+      }
+      _hiddenLayer[j] = sigmoid(sum + hiddenBiases[j]);
+    }
+    
+    float _output = 0;
+    for (int j = 0; j < numHidden; j++) {
+      _output += _hiddenLayer[j] * hiddenWeights[j];
+    }
+    _output = sigmoid(_output + outputBias);
+    
+    // Store the prediction
+    predictions[i] = _output;
+    
+    // Update input window for the next prediction
+    input = shiftInput(input, _output);
+  }
+  return predictions;
+}
+
+// Helper function to shift input window for the next prediction
+float[] shiftInput(float[] input, float newValue) {
+  for (int i = 0; i < input.length - 1; i++) {
+    input[i] = input[i + 1];
+  }
+  input[input.length - 1] = newValue;
+  return input;
 }
 
 float sigmoid(float x) {
