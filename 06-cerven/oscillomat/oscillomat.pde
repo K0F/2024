@@ -11,7 +11,7 @@ ArrayList<Float> drawery = new ArrayList<Float>();
 float headx = 0, heady = 0;
 
 void setup() {
-  size(displayWidth, displayHeight);
+  size(1920, 1080,P2D);
   textFont(createFont("Tahoma", 9));
   
   start = time = (second() + (minute() * 60) + (hour() * 3600));
